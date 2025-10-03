@@ -37,6 +37,7 @@ const LeadTable = ({ leads }) => {
                   value={lead.status}
                   onChange={(e) => handleStatusChange(lead.id, e.target.value)}
                 >
+                  <option value="Fresh Lead">Fresh Lead</option>
                   <option value="Interested">Interested</option>
                   <option value="Follow Up">Follow Up</option>
                   <option value="False Lead">False Lead</option>

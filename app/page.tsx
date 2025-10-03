@@ -1,9 +1,14 @@
 ﻿"use client";
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
-import CSVImport from "./components/CSVImport";
+import { useRouter } from "next/navigation";
+import Analytics from "./components/Analytics";
+import ImportModal from "./components/ImportModal";
 import LeadList from "./components/LeadList";
+import Navbar from "./components/Navbar";
+import Sidebar from "./components/Sidebar";
 import supabase from "./utils/supabase";
+import { useAuth } from "./contexts/AuthContext";
 
 type Category = {
   id: number;
@@ -11,59 +16,134 @@ type Category = {
 };
 
 const HomePage = () => {
+  const router = useRouter();
+  const { user, loading, isAuthorized } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
+    null
+  );
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [categoryError, setCategoryError] = useState("");
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"leads" | "analytics">("leads");
 
-  useEffect(() => {
-    loadCategories();
-  }, []);
+  const loadCategories = async (categoryIdToSelect?: number) => {
+    setIsLoadingCategories(true);
+    setCategoryError("");
+
+    try {
+      // First, check if user has category restrictions
+      const { data: profileData } = await supabase
+        .from("user_profiles")
+        .select("has_category_restrictions, role")
+        .eq("id", user?.id)
+        .single();
+
+      const hasRestrictions = profileData?.has_category_restrictions;
+      const isAdmin = profileData?.role === 'admin' || profileData?.role === 'superadmin';
+
+      // Get all categories
+      const { data: allCategories, error: categoriesError } = await supabase
+        .from("categories")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (categoriesError) throw categoriesError;
+
+      let categoryList: Category[] = allCategories ?? [];
+
+      // If user has restrictions and is not admin, filter categories
+      if (hasRestrictions && !isAdmin) {
+        const { data: assignments } = await supabase
+          .from("user_category_assignments")
+          .select("category_id")
+          .eq("user_id", user?.id);
+
+        const assignedCategoryIds = assignments?.map(a => a.category_id) ?? [];
+        categoryList = categoryList.filter(cat => assignedCategoryIds.includes(cat.id));
+      }
+
+      setCategories(categoryList);
+      setIsLoadingCategories(false);
+
+      if (categoryIdToSelect !== undefined) {
+        setSelectedCategoryId(categoryIdToSelect);
+        return;
+      }
+
+      if (!selectedCategoryId && categoryList.length > 0) {
+        setSelectedCategoryId(categoryList[0].id);
+      } else if (
+        selectedCategoryId &&
+        !categoryList.some((category) => category.id === selectedCategoryId) &&
+        categoryList.length > 0
+      ) {
+        setSelectedCategoryId(categoryList[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch categories", error);
+      setCategoryError("Unable to load categories. Please refresh the page.");
+      setCategories([]);
+      setIsLoadingCategories(false);
+    }
+  };
 
   const selectedCategory = useMemo(() => {
     if (selectedCategoryId === null) {
       return null;
     }
 
-    return categories.find((category) => category.id === selectedCategoryId) ?? null;
+    return (
+      categories.find((category) => category.id === selectedCategoryId) ?? null
+    );
   }, [categories, selectedCategoryId]);
 
-  const loadCategories = async (categoryIdToSelect?: number) => {
-    setIsLoadingCategories(true);
-    setCategoryError("");
-
-    const { data, error } = await supabase
-      .from("categories")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Failed to fetch categories", error);
-      setCategoryError("Unable to load categories. Please refresh the page.");
-      setCategories([]);
-      setIsLoadingCategories(false);
-      return;
+  // Redirect to login if not authenticated or unauthorized
+  useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        router.push("/login");
+      } else if (!isAuthorized) {
+        router.push("/unauthorized");
+      }
     }
+  }, [user, loading, isAuthorized, router]);
 
-    const categoryList: Category[] = data ?? [];
-    setCategories(categoryList);
-    setIsLoadingCategories(false);
+  // Safety timeout - if loading takes too long, redirect to login
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.warn("Loading timeout - redirecting to login");
+        router.push("/login");
+      }
+    }, 10000); // 10 second timeout
 
-    if (categoryIdToSelect !== undefined) {
-      setSelectedCategoryId(categoryIdToSelect);
-      return;
+    return () => clearTimeout(timeout);
+  }, [loading, router]);
+
+  // Load categories on mount
+  useEffect(() => {
+    if (user && !loading) {
+      loadCategories();
     }
+  }, [user, loading]);
 
-    if (!selectedCategoryId && categoryList.length > 0) {
-      setSelectedCategoryId(categoryList[0].id);
-    } else if (
-      selectedCategoryId &&
-      !categoryList.some((category) => category.id === selectedCategoryId) &&
-      categoryList.length > 0
-    ) {
-      setSelectedCategoryId(categoryList[0].id);
-    }
-  };
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600"></div>
+          <p className="mt-4 text-sm text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated or not authorized
+  if (!user || !isAuthorized) {
+    return null;
+  }
 
   const handleCategoryChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value;
@@ -74,83 +154,154 @@ const HomePage = () => {
     loadCategories(category.id);
   };
 
+  const handleDeleteCategory = async () => {
+    if (!selectedCategoryId || !selectedCategory) {
+      return;
+    }
+
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete the category "${selectedCategory.name}"? This will also delete all associated leads and cannot be undone.`
+    );
+
+    if (!confirmDelete) {
+      return;
+    }
+
+    setIsLoadingCategories(true);
+    setCategoryError("");
+
+    try {
+      // First, delete all lead_categories associations
+      const { error: leadCategoriesError } = await supabase
+        .from("lead_categories")
+        .delete()
+        .eq("category_id", selectedCategoryId);
+
+      if (leadCategoriesError) {
+        throw new Error(
+          `Failed to delete category associations: ${leadCategoriesError.message}`
+        );
+      }
+
+      // Then delete the category itself
+      const { error: categoryError } = await supabase
+        .from("categories")
+        .delete()
+        .eq("id", selectedCategoryId);
+
+      if (categoryError) {
+        throw new Error(`Failed to delete category: ${categoryError.message}`);
+      }
+
+      // Reload categories and select the first one if available
+      await loadCategories();
+    } catch (error) {
+      console.error("Delete category error", error);
+      setCategoryError(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete category. Please try again."
+      );
+      setIsLoadingCategories(false);
+    }
+  };
+
   return (
-    <main className="min-h-screen bg-slate-100 pb-12">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-4 pt-12 sm:px-6 lg:px-8">
-        <section className="rounded-3xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 p-8 text-white shadow-xl">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-4">
-              <h1 className="text-3xl font-semibold sm:text-4xl">Lead Management Dashboard</h1>
-              <p className="max-w-2xl text-sm text-blue-100 sm:text-base">
-                Keep every opportunity organized, set follow-ups you will actually remember, and share the latest notes with your team.
-              </p>
-            </div>
-            <div className="flex flex-col items-start gap-2 text-sm text-blue-100 md:items-end">
-              <span className="rounded-full bg-white/10 px-4 py-2 font-semibold uppercase tracking-wide text-white">
-                {categories.length} categor{categories.length === 1 ? "y" : "ies"}
-              </span>
-              <span className="text-sm">
-                Selected: {selectedCategory ? selectedCategory.name : "Select a category"}
-              </span>
-            </div>
-          </div>
-        </section>
+    <div className="flex min-h-screen flex-col bg-gray-50">
+      {/* Navbar */}
+      <Navbar />
 
-        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <div className="space-y-6">
-            <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">Categories</h2>
-                {isLoadingCategories && <span className="text-xs text-gray-400">Refreshing...</span>}
-              </div>
+      {/* Main Content with Sidebar */}
+      <div className="flex flex-1">
+        {/* Sidebar */}
+        <Sidebar
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          isLoadingCategories={isLoadingCategories}
+          categoryError={categoryError}
+          onCategoryChange={handleCategoryChange}
+          onRefresh={() => loadCategories(selectedCategoryId ?? undefined)}
+          onDeleteCategory={handleDeleteCategory}
+          onImportClick={() => setIsImportModalOpen(true)}
+        />
 
-              <p className="mt-2 text-sm text-gray-600">
-                Importing a CSV automatically creates a new category if it does not already exist.
-              </p>
-
-              {categoryError && (
-                <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {categoryError}
-                </div>
-              )}
-
-              <div className="mt-5 space-y-3">
-                <div className="space-y-2">
-                  <label htmlFor="category-select" className="text-sm font-semibold text-gray-800">
-                    Active category
-                  </label>
-                  <select
-                    id="category-select"
-                    value={selectedCategoryId ?? ""}
-                    onChange={handleCategoryChange}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-auto p-6">
+          {/* Tabs */}
+          <div className="mb-6 border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab("leads")}
+                className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition ${
+                  activeTab === "leads"
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <option value="">Select a category</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
+                  Leads
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => loadCategories(selectedCategoryId ?? undefined)}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                >
-                  Refresh categories
-                </button>
-              </div>
-            </section>
-
-            <CSVImport onComplete={handleImportComplete} />
+              </button>
+              <button
+                onClick={() => setActiveTab("analytics")}
+                className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition ${
+                  activeTab === "analytics"
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                    />
+                  </svg>
+                  Analytics
+                </div>
+              </button>
+            </nav>
           </div>
 
-          <LeadList categoryId={selectedCategoryId} />
-        </div>
+          {/* Tab Content */}
+          {activeTab === "leads" ? (
+            <LeadList
+              categoryId={selectedCategoryId}
+              onImportClick={() => setIsImportModalOpen(true)}
+            />
+          ) : (
+            <Analytics categoryId={selectedCategoryId} />
+          )}
+        </main>
       </div>
-    </main>
+
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onComplete={handleImportComplete}
+      />
+    </div>
   );
 };
 
