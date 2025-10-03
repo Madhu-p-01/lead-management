@@ -1,103 +1,157 @@
-import Image from "next/image";
+﻿"use client";
 
-export default function Home() {
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import CSVImport from "./components/CSVImport";
+import LeadList from "./components/LeadList";
+import supabase from "./utils/supabase";
+
+type Category = {
+  id: number;
+  name: string;
+};
+
+const HomePage = () => {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [categoryError, setCategoryError] = useState("");
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const selectedCategory = useMemo(() => {
+    if (selectedCategoryId === null) {
+      return null;
+    }
+
+    return categories.find((category) => category.id === selectedCategoryId) ?? null;
+  }, [categories, selectedCategoryId]);
+
+  const loadCategories = async (categoryIdToSelect?: number) => {
+    setIsLoadingCategories(true);
+    setCategoryError("");
+
+    const { data, error } = await supabase
+      .from("categories")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Failed to fetch categories", error);
+      setCategoryError("Unable to load categories. Please refresh the page.");
+      setCategories([]);
+      setIsLoadingCategories(false);
+      return;
+    }
+
+    const categoryList: Category[] = data ?? [];
+    setCategories(categoryList);
+    setIsLoadingCategories(false);
+
+    if (categoryIdToSelect !== undefined) {
+      setSelectedCategoryId(categoryIdToSelect);
+      return;
+    }
+
+    if (!selectedCategoryId && categoryList.length > 0) {
+      setSelectedCategoryId(categoryList[0].id);
+    } else if (
+      selectedCategoryId &&
+      !categoryList.some((category) => category.id === selectedCategoryId) &&
+      categoryList.length > 0
+    ) {
+      setSelectedCategoryId(categoryList[0].id);
+    }
+  };
+
+  const handleCategoryChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const value = event.target.value;
+    setSelectedCategoryId(value ? Number(value) : null);
+  };
+
+  const handleImportComplete = (category: Category) => {
+    loadCategories(category.id);
+  };
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main className="min-h-screen bg-slate-100 pb-12">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-4 pt-12 sm:px-6 lg:px-8">
+        <section className="rounded-3xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 p-8 text-white shadow-xl">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-4">
+              <h1 className="text-3xl font-semibold sm:text-4xl">Lead Management Dashboard</h1>
+              <p className="max-w-2xl text-sm text-blue-100 sm:text-base">
+                Keep every opportunity organized, set follow-ups you will actually remember, and share the latest notes with your team.
+              </p>
+            </div>
+            <div className="flex flex-col items-start gap-2 text-sm text-blue-100 md:items-end">
+              <span className="rounded-full bg-white/10 px-4 py-2 font-semibold uppercase tracking-wide text-white">
+                {categories.length} categor{categories.length === 1 ? "y" : "ies"}
+              </span>
+              <span className="text-sm">
+                Selected: {selectedCategory ? selectedCategory.name : "Select a category"}
+              </span>
+            </div>
+          </div>
+        </section>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+          <div className="space-y-6">
+            <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Categories</h2>
+                {isLoadingCategories && <span className="text-xs text-gray-400">Refreshing...</span>}
+              </div>
+
+              <p className="mt-2 text-sm text-gray-600">
+                Importing a CSV automatically creates a new category if it does not already exist.
+              </p>
+
+              {categoryError && (
+                <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {categoryError}
+                </div>
+              )}
+
+              <div className="mt-5 space-y-3">
+                <div className="space-y-2">
+                  <label htmlFor="category-select" className="text-sm font-semibold text-gray-800">
+                    Active category
+                  </label>
+                  <select
+                    id="category-select"
+                    value={selectedCategoryId ?? ""}
+                    onChange={handleCategoryChange}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => loadCategories(selectedCategoryId ?? undefined)}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                >
+                  Refresh categories
+                </button>
+              </div>
+            </section>
+
+            <CSVImport onComplete={handleImportComplete} />
+          </div>
+
+          <LeadList categoryId={selectedCategoryId} />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </div>
+    </main>
   );
-}
+};
+
+export default HomePage;

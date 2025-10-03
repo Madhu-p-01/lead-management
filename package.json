@@ -8,16 +8,21 @@
     "start": "next start"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.58.0",
+    "@tanstack/react-query": "^5.90.2",
+    "next": "15.5.4",
+    "papaparse": "^5.5.3",
     "react": "19.1.0",
+    "react-datepicker": "^8.7.0",
     "react-dom": "19.1.0",
-    "next": "15.5.4"
+    "shadcn-ui": "^0.9.5"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4.1.14",
+    "typescript": "^5"
   }
 }
