@@ -68,29 +68,42 @@ const AssignLeadsModal = ({
       return;
     }
 
+    if (!selectedLeadIds || selectedLeadIds.length === 0) {
+      setErrorMessage("No leads selected to assign.");
+      return;
+    }
+
     setIsAssigning(true);
     setErrorMessage("");
 
     try {
-      const { error } = await supabase
+      console.log("Assigning leads:", {
+        leadIds: selectedLeadIds,
+        userId: selectedUserId,
+        leadCount: selectedLeadIds.length
+      });
+
+      const { data, error } = await supabase
         .from("leads")
         .update({
           assigned_to: selectedUserId,
           updated_at: new Date().toISOString(),
         })
-        .in("id", selectedLeadIds);
+        .in("id", selectedLeadIds)
+        .select();
 
       if (error) {
         console.error("Error assigning leads:", error);
-        setErrorMessage("Failed to assign leads. Please try again.");
+        setErrorMessage(`Failed to assign leads: ${error.message}`);
       } else {
+        console.log("Successfully assigned leads:", data);
         // Success - close modal and notify parent
         onAssignComplete();
         handleClose();
       }
     } catch (error) {
       console.error("Error in handleAssign:", error);
-      setErrorMessage("Failed to assign leads. Please try again.");
+      setErrorMessage(`Failed to assign leads: ${error.message || "Unknown error"}`);
     } finally {
       setIsAssigning(false);
     }
@@ -113,13 +126,10 @@ const AssignLeadsModal = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-    >
-      <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-0 sm:p-4">
+      <div className="h-full w-full overflow-hidden bg-white shadow-xl sm:h-auto sm:max-w-md sm:rounded-lg">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 p-6">
+        <div className="flex items-center justify-between border-b border-gray-200 p-4 sm:p-6">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Assign Leads</h2>
             <p className="mt-1 text-sm text-gray-600">
@@ -148,7 +158,7 @@ const AssignLeadsModal = ({
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="h-[calc(100vh-180px)] overflow-y-auto p-4 sm:h-auto sm:p-6">
           {errorMessage && (
             <div className="alert alert-error mb-4 animate-scale-in flex items-start gap-2">
               <svg
@@ -191,12 +201,12 @@ const AssignLeadsModal = ({
 
             {/* User Dropdown */}
             {filteredUsers.length > 0 && (
-              <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+              <div className="max-h-48 sm:max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-sm">
                 {filteredUsers.map((user) => (
                   <button
                     key={user.id}
                     onClick={() => handleUserSelect(user.id)}
-                    className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-gray-50"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-gray-50 touch-target"
                   >
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-gray-900">
@@ -264,17 +274,17 @@ const AssignLeadsModal = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-gray-200 p-6">
+        <div className="flex items-center justify-end gap-2 sm:gap-3 border-t border-gray-200 p-4 sm:p-6">
           <button
             onClick={handleClose}
-            className="btn btn-secondary"
+            className="btn btn-secondary touch-target"
             disabled={isAssigning}
           >
             Cancel
           </button>
           <button
             onClick={handleAssign}
-            className="btn btn-primary"
+            className="btn btn-primary touch-target"
             disabled={!selectedUserId || isAssigning}
           >
             {isAssigning ? (

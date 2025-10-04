@@ -50,6 +50,7 @@ const truncateString = (value, maxLength = 255) => {
 const ImportModal = ({ isOpen, onClose, onComplete }) => {
   const [categoryName, setCategoryName] = useState("");
   const [file, setFile] = useState(null);
+  const [nationality, setNationality] = useState("National");
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -67,6 +68,7 @@ const ImportModal = ({ isOpen, onClose, onComplete }) => {
   const resetForm = () => {
     setCategoryName("");
     setFile(null);
+    setNationality("National");
     setErrorMessage("");
     setSuccessMessage("");
     if (typeof window !== "undefined") {
@@ -110,7 +112,15 @@ const ImportModal = ({ isOpen, onClose, onComplete }) => {
           return;
         }
 
-        const validRows = data.filter((row) => row && row.name);
+        // Filter valid rows - check for either 'name' (national) or 'firstname'/'company' (international)
+        const validRows = data.filter((row) => {
+          if (!row) return false;
+          // National format has 'name'
+          if (row.name) return true;
+          // International format has 'firstname' or at least 'company'
+          if (row.firstname || row['first name'] || row.company) return true;
+          return false;
+        });
 
         if (!validRows.length) {
           setErrorMessage("No valid rows found in the CSV file.");
@@ -118,10 +128,21 @@ const ImportModal = ({ isOpen, onClose, onComplete }) => {
           return;
         }
 
+        // Auto-detect nationality based on CSV columns
+        let detectedNationality = nationality;
+        if (validRows.length > 0) {
+          const firstRow = validRows[0];
+          // If CSV has 'country' column, it's international data
+          if (firstRow.hasOwnProperty('country') && firstRow.country) {
+            detectedNationality = "International";
+          }
+        }
+
         try {
           const { category, importedCount } = await importLeads(
             validRows,
-            trimmedCategoryName
+            trimmedCategoryName,
+            detectedNationality
           );
 
           setSuccessMessage(
@@ -155,7 +176,7 @@ const ImportModal = ({ isOpen, onClose, onComplete }) => {
     });
   };
 
-  const importLeads = async (rows, categoryTitle) => {
+  const importLeads = async (rows, categoryTitle, nationalityValue) => {
     const { data: existingCategory, error: lookupError } = await supabase
       .from("categories")
       .select("*")
@@ -172,7 +193,7 @@ const ImportModal = ({ isOpen, onClose, onComplete }) => {
       const { data: createdCategory, error: insertCategoryError } =
         await supabase
           .from("categories")
-          .insert([{ name: categoryTitle }])
+          .insert([{ name: categoryTitle, nationality: nationalityValue }])
           .select()
           .single();
 
@@ -183,22 +204,62 @@ const ImportModal = ({ isOpen, onClose, onComplete }) => {
       }
 
       category = createdCategory;
+    } else {
+      // Update existing category's nationality
+      const { error: updateError } = await supabase
+        .from("categories")
+        .update({ nationality: nationalityValue })
+        .eq("id", category.id);
+
+      if (updateError) {
+        console.warn("Failed to update category nationality:", updateError);
+      }
     }
 
-    const leadsWithCompetitors = rows.map((row) => ({
-      lead: {
-        name: truncateString(row.name, 255) || "",
-        reviews: row.reviews ? Number(row.reviews) : null,
-        rating: row.rating ? Number(row.rating) : null,
-        website: truncateString(row.website, 255),
-        phone: truncateString(row.phone, 50),
-        owner_name: truncateString(row.owner_name, 255),
-        status: "Fresh Lead",
-        follow_up_date: null,
-        notes: "",
-      },
-      competitors: parseCompetitors(row.competitors),
-    }));
+    const leadsWithCompetitors = rows.map((row) => {
+      // Check if this is international format (has firstname/lastname)
+      const isInternational = row.hasOwnProperty('firstname') || row.hasOwnProperty('first name');
+      
+      let leadData;
+      if (isInternational) {
+        // International format: firstname, lastname, title, email, cphone, website, company
+        const firstName = row.firstname || row['first name'] || '';
+        const lastName = row.lastname || row['last name'] || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+        
+        leadData = {
+          name: truncateString(fullName || row.company, 255) || "",
+          reviews: null,
+          rating: null,
+          website: truncateString(row.website, 255),
+          phone: truncateString(row.cphone || row.phone, 50),
+          owner_name: truncateString(row.title, 255),
+          query: row.email ? truncateString(row.email, 500) : null,
+          status: "Fresh Lead",
+          follow_up_date: null,
+          notes: row.company ? `Company: ${row.company}` : "",
+        };
+      } else {
+        // National format: name, reviews, rating, website, phone, owner_name, query
+        leadData = {
+          name: truncateString(row.name, 255) || "",
+          reviews: row.reviews ? Number(row.reviews) : null,
+          rating: row.rating ? Number(row.rating) : null,
+          website: truncateString(row.website, 255),
+          phone: truncateString(row.phone, 50),
+          owner_name: truncateString(row.owner_name, 255),
+          query: row.query ? truncateString(row.query, 500) : null,
+          status: "Fresh Lead",
+          follow_up_date: null,
+          notes: "",
+        };
+      }
+      
+      return {
+        lead: leadData,
+        competitors: parseCompetitors(row.competitors),
+      };
+    });
 
     const leadsPayload = leadsWithCompetitors.map((item) => item.lead);
     const filteredPayload = leadsPayload.filter((lead) => lead.name);
@@ -267,13 +328,24 @@ const ImportModal = ({ isOpen, onClose, onComplete }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="card w-full max-w-2xl animate-scale-in p-6">
-        <div className="mb-6 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-0 sm:p-4 backdrop-blur-sm">
+      <div className="card h-full w-full overflow-hidden sm:h-auto sm:max-w-2xl animate-scale-in p-0 sm:rounded-lg">
+        <div className="h-full overflow-y-auto p-4 sm:p-6">
+        <div className="mb-4 sm:mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100">
-              <svg className="h-6 w-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              <svg
+                className="h-6 w-6 text-primary-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                />
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-gray-900">Import Leads</h2>
@@ -283,21 +355,45 @@ const ImportModal = ({ isOpen, onClose, onComplete }) => {
             className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
             disabled={isUploading}
           >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
 
-        <p className="mb-6 text-sm leading-relaxed text-gray-600">
-          Upload a CSV file with columns: name, reviews, rating, competitors, website, phone, owner_name.
+        <p className="mb-4 sm:mb-6 text-sm leading-relaxed text-gray-600">
+          Upload a CSV file with columns: name, reviews, rating, competitors,
+          website, phone, owner_name, query.
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
           <div className="space-y-2">
-            <label htmlFor="modal-category-name" className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-              <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            <label
+              htmlFor="modal-category-name"
+              className="flex items-center gap-2 text-sm font-semibold text-gray-800"
+            >
+              <svg
+                className="h-4 w-4 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                />
               </svg>
               Category name
             </label>
@@ -312,10 +408,69 @@ const ImportModal = ({ isOpen, onClose, onComplete }) => {
             />
           </div>
 
+          {/* Nationality Toggle */}
           <div className="space-y-2">
-            <label htmlFor="modal-csv-input" className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-              <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+              <svg
+                className="h-4 w-4 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              Lead Type
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setNationality("National")}
+                disabled={isUploading}
+                className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition ${
+                  nationality === "National"
+                    ? "bg-primary-600 text-white shadow-sm"
+                    : "border border-gray-300 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                National
+              </button>
+              <button
+                type="button"
+                onClick={() => setNationality("International")}
+                disabled={isUploading}
+                className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition ${
+                  nationality === "International"
+                    ? "bg-primary-600 text-white shadow-sm"
+                    : "border border-gray-300 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                International
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label
+              htmlFor="modal-csv-input"
+              className="flex items-center gap-2 text-sm font-semibold text-gray-800"
+            >
+              <svg
+                className="h-4 w-4 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
               CSV file
             </label>
@@ -328,17 +483,38 @@ const ImportModal = ({ isOpen, onClose, onComplete }) => {
               disabled={isUploading}
             />
             <p className="flex items-start gap-1.5 text-xs text-gray-500">
-              <svg className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
-              <span>Export from Google Sheets or Excel in CSV format. Empty rows are ignored.</span>
+              <span>
+                Export from Google Sheets or Excel in CSV format. Empty rows are
+                ignored.
+              </span>
             </p>
           </div>
 
           {errorMessage && (
             <div className="alert alert-error animate-scale-in flex items-start gap-2">
-              <svg className="h-4 w-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              <svg
+                className="h-4 w-4 flex-shrink-0"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
               </svg>
               <span>{errorMessage}</span>
             </div>
@@ -346,39 +522,72 @@ const ImportModal = ({ isOpen, onClose, onComplete }) => {
 
           {successMessage && (
             <div className="alert alert-success animate-scale-in flex items-start gap-2">
-              <svg className="h-4 w-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              <svg
+                className="h-4 w-4 flex-shrink-0"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
               </svg>
               <span>{successMessage}</span>
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-2">
+          <div className="flex items-center justify-end gap-2 sm:gap-3 pt-2">
             <button
               type="button"
               onClick={handleClose}
               disabled={isUploading}
-              className="btn btn-secondary"
+              className="btn btn-secondary touch-target"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isUploading}
-              className="btn btn-primary"
+              className="btn btn-primary touch-target"
             >
               {isUploading ? (
                 <>
-                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg
+                    className="h-4 w-4 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
                   </svg>
                   Importing...
                 </>
               ) : (
                 <>
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
                   </svg>
                   Import leads
                 </>
@@ -386,6 +595,7 @@ const ImportModal = ({ isOpen, onClose, onComplete }) => {
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );

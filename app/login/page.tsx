@@ -71,13 +71,13 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="flex w-full h-[100vh] bg-white rounded-2xl shadow-2xl overflow-hidden">
+      <div className="flex w-full h-[100vh] bg-white sm:rounded-2xl shadow-2xl overflow-hidden flex-col lg:flex-row">
         {/* Left Section */}
-        <div className="flex w-[60%] flex-col justify-center px-8 py-8 bg-white">
-          <div className="w-[60%] mx-auto">
+        <div className="flex w-full lg:w-[60%] flex-col justify-center px-4 py-6 sm:px-8 sm:py-8 bg-white">
+          <div className="w-full sm:w-[80%] lg:w-[60%] mx-auto">
             {/* Logo/Header */}
-            <div className="mb-8">
-              <div className="flex items-center mb-8">
+            <div className="mb-6 sm:mb-8">
+              <div className="flex items-center mb-4 sm:mb-8">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 mr-3">
                   <span className="text-sm font-bold text-white">S</span>
                 </div>
@@ -86,7 +86,7 @@ export default function LoginPage() {
                 </h1>
               </div>
 
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                 Welcome Back
               </h2>
               <p className="text-gray-600">
@@ -102,7 +102,7 @@ export default function LoginPage() {
             )}
 
             {/* Login Form */}
-            <form onSubmit={handleEmailLogin} className="space-y-6">
+            <form onSubmit={handleEmailLogin} className="space-y-4 sm:space-y-6">
               {/* Email Field */}
               <div>
                 <label
@@ -280,7 +280,7 @@ export default function LoginPage() {
         </div>
 
         {/* Right Section */}
-        <div className="w-[65%] relative bg-gradient-to-br from-blue-600 to-blue-700 flex flex-col items-center justify-center p-8 m-[20px] rounded-[30px]">
+        <div className="hidden lg:flex w-[65%] relative bg-gradient-to-br from-blue-600 to-blue-700 flex-col items-center justify-center p-8 m-[20px] rounded-[30px]">
           {/* Background Image - Top Right Corner */}
           <div className="absolute top-8 right-8 w-32 h-32">
             <Image

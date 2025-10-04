@@ -188,20 +188,26 @@ const CSVImport = ({ onComplete }) => {
     }
 
     // Prepare leads data with competitors parsed separately
-    const leadsWithCompetitors = rows.map((row) => ({
-      lead: {
-        name: truncateString(row.name, 255) || "",
-        reviews: row.reviews ? Number(row.reviews) : null,
-        rating: row.rating ? Number(row.rating) : null,
-        website: truncateString(row.website, 255),
-        phone: truncateString(row.phone, 50),
-        owner_name: truncateString(row.owner_name, 255),
-        status: "Fresh Lead",
-        follow_up_date: null,
-        notes: "",
-      },
-      competitors: parseCompetitors(row.competitors),
-    }));
+    const leadsWithCompetitors = rows.map((row) => {
+      // Debug: Log the query value
+      console.log('Row query value:', row.query);
+      
+      return {
+        lead: {
+          name: truncateString(row.name, 255) || "",
+          reviews: row.reviews ? Number(row.reviews) : null,
+          rating: row.rating ? Number(row.rating) : null,
+          website: truncateString(row.website, 255),
+          phone: truncateString(row.phone, 50),
+          owner_name: truncateString(row.owner_name, 255),
+          query: row.query ? truncateString(row.query, 500) : null,
+          status: "Fresh Lead",
+          follow_up_date: null,
+          notes: "",
+        },
+        competitors: parseCompetitors(row.competitors),
+      };
+    });
 
     const leadsPayload = leadsWithCompetitors.map((item) => item.lead);
 
@@ -297,7 +303,7 @@ const CSVImport = ({ onComplete }) => {
         </div>
         <p className="text-sm leading-relaxed text-gray-600">
           Upload a CSV that includes the columns: name, reviews, rating,
-          competitors, website, phone, owner_name.
+          competitors, website, phone, owner_name, query.
         </p>
       </div>
 

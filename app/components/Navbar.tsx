@@ -2,10 +2,16 @@
 
 import { useAuth } from "../contexts/AuthContext";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import NotificationsModal from "./NotificationsModal";
 import supabase from "../utils/supabase";
 
-const Navbar = () => {
+type NavbarProps = {
+  onMobileSidebarToggle?: () => void;
+};
+
+const Navbar = ({ onMobileSidebarToggle }: NavbarProps) => {
+  const router = useRouter();
   const { user, signOut, userRole, refreshAuth } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -91,10 +97,13 @@ const Navbar = () => {
     <nav className="sticky top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
       <div className="mx-auto flex h-16 max-w-full items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo and Title */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600">
+        <button 
+          onClick={() => router.push("/")}
+          className="flex items-center gap-2 sm:gap-3 transition hover:opacity-80"
+        >
+          <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600">
             <svg
-              className="h-6 w-6 text-white"
+              className="h-4 w-4 sm:h-6 sm:w-6 text-white"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -107,14 +116,14 @@ const Navbar = () => {
               />
             </svg>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">Lead Manager</h1>
-            <p className="text-xs text-gray-500">Organize & Track Leads</p>
+          <div className="hidden sm:block">
+            <h1 className="text-base sm:text-lg font-bold text-gray-900">Lead Manager</h1>
+            <p className="text-xs text-gray-500 hidden md:block">Organize & Track Leads</p>
           </div>
-        </div>
+        </button>
 
         {/* Right Side Actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           {/* Search */}
           <div className="hidden md:block">
             <div className="relative">
@@ -142,10 +151,10 @@ const Navbar = () => {
           {/* Notifications */}
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative rounded-lg p-2 text-gray-600 transition hover:bg-gray-100"
+            className="relative rounded-lg p-2 text-gray-600 transition hover:bg-gray-100 touch-target"
           >
             <svg
-              className="h-5 w-5"
+              className="h-5 w-5 sm:h-6 sm:w-6"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -158,14 +167,34 @@ const Navbar = () => {
               />
             </svg>
             {unreadCount > 0 && (
-              <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white">
+              <span className="absolute right-1 top-1 sm:right-1.5 sm:top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white">
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
           </button>
 
-          {/* User Menu */}
-          <div className="relative">
+          {/* Mobile Sidebar Toggle Button */}
+          <button
+            onClick={onMobileSidebarToggle}
+            className="lg:hidden rounded-lg p-2 text-gray-600 transition hover:bg-gray-100 touch-target"
+          >
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+
+          {/* User Menu - Desktop */}
+          <div className="relative hidden md:block">
             <button
               onClick={() => setShowDropdown(!showDropdown)}
               className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 transition hover:bg-gray-50"
@@ -204,8 +233,62 @@ const Navbar = () => {
                       {getUserName()}
                     </p>
                     <p className="text-xs text-gray-500">{user?.email}</p>
+                    {userRole && (
+                      <span className="mt-1 inline-block rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">
+                        {userRole}
+                      </span>
+                    )}
                   </div>
                   <div className="py-1">
+                    {(userRole === "admin" || userRole === "superadmin") && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setShowDropdown(false);
+                            router.push("/admin/user-management");
+                          }}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                            />
+                          </svg>
+                          User Management
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowDropdown(false);
+                            router.push("/admin/analytics");
+                          }}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                            />
+                          </svg>
+                          Analytics
+                        </button>
+                        <div className="border-t border-gray-200"></div>
+                      </>
+                    )}
                     <button
                       onClick={() => {
                         setShowDropdown(false);

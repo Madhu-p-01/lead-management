@@ -183,9 +183,9 @@ const NotificationsModal = ({ isOpen, onClose }: NotificationsModalProps) => {
       ></div>
 
       {/* Modal */}
-      <div className="fixed right-4 top-20 z-50 w-96 animate-slideDown rounded-lg border border-gray-200 bg-white shadow-2xl">
+      <div className="fixed inset-x-4 top-20 z-50 mx-auto max-w-md animate-slideDown rounded-lg border border-gray-200 bg-white shadow-2xl sm:inset-x-auto sm:right-4 sm:w-96">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-gray-200 px-3 py-2.5 sm:px-4 sm:py-3">
           <div className="flex items-center gap-2">
             <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
             {unreadCount > 0 && (
@@ -205,7 +205,7 @@ const NotificationsModal = ({ isOpen, onClose }: NotificationsModalProps) => {
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex border-b border-gray-200 px-4">
+        <div className="flex border-b border-gray-200 px-2 sm:px-4">
           <button
             onClick={() => setFilter("all")}
             className={`border-b-2 px-4 py-2 text-sm font-medium transition ${
@@ -241,7 +241,7 @@ const NotificationsModal = ({ isOpen, onClose }: NotificationsModalProps) => {
         )}
 
         {/* Notifications List */}
-        <div className="max-h-96 overflow-y-auto">
+        <div className="max-h-[60vh] sm:max-h-96 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600"></div>
@@ -268,7 +268,7 @@ const NotificationsModal = ({ isOpen, onClose }: NotificationsModalProps) => {
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`group relative px-4 py-3 transition hover:bg-gray-50 ${
+                  className={`group relative px-3 py-2.5 sm:px-4 sm:py-3 transition hover:bg-gray-50 ${
                     !notification.is_read ? "bg-blue-50/50" : ""
                   }`}
                 >

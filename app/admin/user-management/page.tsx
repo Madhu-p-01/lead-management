@@ -312,7 +312,7 @@ export default function AdminPage() {
           />
 
           {/* Main Content Area */}
-          <main className="flex-1 overflow-auto p-6">
+          <main className="flex-1 overflow-auto p-4 sm:p-6">
             {/* Header Skeleton */}
             <div className="mb-8">
               <div className="h-8 w-64 animate-pulse rounded bg-gray-200"></div>
@@ -385,8 +385,8 @@ export default function AdminPage() {
         {/* Main Content Area */}
         <main className="flex-1 overflow-auto p-6">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               User Management
             </h1>
             <p className="mt-2 text-sm text-gray-600">
@@ -434,12 +434,12 @@ export default function AdminPage() {
           )}
 
           {/* Add User Form */}
-          <div className="mb-8 rounded-lg bg-white p-6 shadow">
+          <div className="mb-6 sm:mb-8 rounded-lg bg-white p-4 sm:p-6 shadow">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               Add New User
             </h2>
             <form onSubmit={addUser} className="space-y-4">
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
                   <label className="mb-1 block text-sm font-medium text-gray-700">
                     Email Address
@@ -534,7 +534,8 @@ export default function AdminPage() {
           </div>
 
           {/* Users Table */}
-          <div className="overflow-hidden rounded-lg bg-white shadow">
+          <div className="overflow-hidden rounded-lg bg-white shadow -mx-4 sm:mx-0">
+            <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -649,6 +650,7 @@ export default function AdminPage() {
                 </p>
               </div>
             )}
+            </div>
           </div>
 
           {/* Stats */}

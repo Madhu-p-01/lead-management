@@ -76,6 +76,24 @@
       opacity: 1;
     }
   }
+
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slide-in-left {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
 }
 
 @layer base {
@@ -87,6 +105,31 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Mobile-specific utilities */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  .mobile-card {
+    @apply block md:hidden rounded-lg border border-gray-200 bg-white p-4 shadow-sm;
+  }
+
+  .desktop-table {
+    @apply hidden md:block;
+  }
+
+  .mobile-full-screen {
+    @apply fixed inset-0 z-50 md:relative md:inset-auto md:z-auto;
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s ease-out;
+  }
+
+  .animate-slide-in-left {
+    animation: slide-in-left 0.3s ease-out;
   }
 
   /* Card styles */

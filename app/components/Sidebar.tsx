@@ -19,6 +19,8 @@ type SidebarProps = {
   onDeleteCategory: () => void;
   onImportClick: () => void;
   onBulkImportClick?: () => void;
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 };
 
 const AdminSection = () => {
@@ -52,6 +54,25 @@ const AdminSection = () => {
           </svg>
           User Management
         </button>
+        <button
+          onClick={() => router.push("/admin/analytics")}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 transition hover:bg-blue-50 hover:text-blue-700"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+            />
+          </svg>
+          Analytics
+        </button>
       </div>
     </div>
   );
@@ -67,13 +88,14 @@ const Sidebar = ({
   onDeleteCategory,
   onImportClick,
   onBulkImportClick,
+  isMobileOpen = false,
+  onMobileClose,
 }: SidebarProps) => {
   const router = useRouter();
   const { userRole } = useAuth();
 
-  return (
-    <aside className="w-full border-r border-gray-200 bg-white lg:w-80">
-      <div className="sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto p-6">
+  const sidebarContent = (
+    <div className="h-full overflow-y-auto p-4 sm:p-6">
         {/* Categories Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between">
@@ -301,7 +323,55 @@ const Sidebar = ({
         {/* Admin Section */}
         <AdminSection />
       </div>
-    </aside>
+  );
+
+  return (
+    <>
+      {/* Mobile Sidebar Drawer */}
+      {isMobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={onMobileClose}
+          />
+          
+          {/* Drawer */}
+          <aside className="absolute left-0 top-0 h-full w-80 max-w-[85vw] bg-white shadow-xl animate-slide-in-left">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-200 p-4">
+              <h2 className="text-lg font-semibold text-gray-900">Menu</h2>
+              <button
+                onClick={onMobileClose}
+                className="rounded-lg p-2 text-gray-600 transition hover:bg-gray-100"
+              >
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:block w-80 border-r border-gray-200 bg-white">
+        <div className="sticky top-16 h-[calc(100vh-4rem)]">
+          {sidebarContent}
+        </div>
+      </aside>
+    </>
   );
 };
 

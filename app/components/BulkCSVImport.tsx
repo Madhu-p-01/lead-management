@@ -310,9 +310,10 @@ const BulkCSVImport = ({ isOpen, onClose, onComplete }: BulkCSVImportProps) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
-        <div className="mb-6 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-0 sm:p-4 backdrop-blur-sm">
+      <div className="h-full w-full overflow-hidden bg-white shadow-xl sm:h-auto sm:max-w-2xl sm:rounded-lg">
+        <div className="h-full overflow-y-auto p-4 sm:p-6">
+        <div className="mb-4 sm:mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
               <svg
@@ -354,7 +355,7 @@ const BulkCSVImport = ({ isOpen, onClose, onComplete }: BulkCSVImportProps) => {
           </button>
         </div>
 
-        <div className="mb-6 rounded-lg bg-blue-50 p-4">
+        <div className="mb-4 sm:mb-6 rounded-lg bg-blue-50 p-3 sm:p-4">
           <div className="flex gap-3">
             <svg
               className="h-5 w-5 flex-shrink-0 text-blue-600"
@@ -389,7 +390,7 @@ const BulkCSVImport = ({ isOpen, onClose, onComplete }: BulkCSVImportProps) => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
           <div className="space-y-2">
             <label
               htmlFor="bulk-csv-input"
@@ -487,19 +488,19 @@ const BulkCSVImport = ({ isOpen, onClose, onComplete }: BulkCSVImportProps) => {
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-2">
+          <div className="flex items-center justify-end gap-2 sm:gap-3 pt-2">
             <button
               type="button"
               onClick={handleClose}
               disabled={isUploading}
-              className="rounded-lg border border-gray-300 bg-white px-6 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-lg border border-gray-300 bg-white px-4 sm:px-6 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 touch-target"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isUploading || !file}
-              className="flex items-center gap-2 rounded-lg bg-purple-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-purple-700 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 sm:px-6 py-2.5 text-sm font-medium text-white transition hover:bg-purple-700 disabled:opacity-50 touch-target"
             >
               {isUploading ? (
                 <>
@@ -545,6 +546,7 @@ const BulkCSVImport = ({ isOpen, onClose, onComplete }: BulkCSVImportProps) => {
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );
