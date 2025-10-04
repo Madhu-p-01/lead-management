@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Analytics from "./components/Analytics";
 import ImportModal from "./components/ImportModal";
@@ -26,67 +26,93 @@ const HomePage = () => {
   const [categoryError, setCategoryError] = useState("");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"leads" | "analytics">("leads");
+  const hasLoadedRef = useState(false);
 
-  const loadCategories = async (categoryIdToSelect?: number) => {
-    setIsLoadingCategories(true);
-    setCategoryError("");
-
-    try {
-      // First, check if user has category restrictions
-      const { data: profileData } = await supabase
-        .from("user_profiles")
-        .select("has_category_restrictions, role")
-        .eq("id", user?.id)
-        .single();
-
-      const hasRestrictions = profileData?.has_category_restrictions;
-      const isAdmin = profileData?.role === 'admin' || profileData?.role === 'superadmin';
-
-      // Get all categories
-      const { data: allCategories, error: categoriesError } = await supabase
-        .from("categories")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (categoriesError) throw categoriesError;
-
-      let categoryList: Category[] = allCategories ?? [];
-
-      // If user has restrictions and is not admin, filter categories
-      if (hasRestrictions && !isAdmin) {
-        const { data: assignments } = await supabase
-          .from("user_category_assignments")
-          .select("category_id")
-          .eq("user_id", user?.id);
-
-        const assignedCategoryIds = assignments?.map(a => a.category_id) ?? [];
-        categoryList = categoryList.filter(cat => assignedCategoryIds.includes(cat.id));
-      }
-
-      setCategories(categoryList);
-      setIsLoadingCategories(false);
-
-      if (categoryIdToSelect !== undefined) {
-        setSelectedCategoryId(categoryIdToSelect);
+  const loadCategories = useCallback(
+    async (categoryIdToSelect?: number) => {
+      // Don't load if user is not ready
+      if (!user) {
         return;
       }
 
-      if (!selectedCategoryId && categoryList.length > 0) {
-        setSelectedCategoryId(categoryList[0].id);
-      } else if (
-        selectedCategoryId &&
-        !categoryList.some((category) => category.id === selectedCategoryId) &&
-        categoryList.length > 0
-      ) {
-        setSelectedCategoryId(categoryList[0].id);
+      setIsLoadingCategories(true);
+      setCategoryError("");
+
+      try {
+        // Ensure session is active before making requests
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) {
+          console.error("No active session");
+          setCategoryError("Session expired. Please refresh the page.");
+          setIsLoadingCategories(false);
+          return;
+        }
+
+        // First, check if user has category restrictions
+        const { data: profileData } = await supabase
+          .from("user_profiles")
+          .select("has_category_restrictions, role")
+          .eq("id", user.id)
+          .single();
+
+        const hasRestrictions = profileData?.has_category_restrictions;
+        const isAdmin =
+          profileData?.role === "admin" || profileData?.role === "superadmin";
+
+        // Get all categories
+        const { data: allCategories, error: categoriesError } = await supabase
+          .from("categories")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (categoriesError) throw categoriesError;
+
+        let categoryList: Category[] = allCategories ?? [];
+
+        // If user has restrictions and is not admin, filter categories
+        if (hasRestrictions && !isAdmin) {
+          const { data: assignments } = await supabase
+            .from("user_category_assignments")
+            .select("category_id")
+            .eq("user_id", user?.id);
+
+          const assignedCategoryIds =
+            assignments?.map((a) => a.category_id) ?? [];
+          categoryList = categoryList.filter((cat) =>
+            assignedCategoryIds.includes(cat.id)
+          );
+        }
+
+        setCategories(categoryList);
+        setIsLoadingCategories(false);
+
+        if (categoryIdToSelect !== undefined) {
+          setSelectedCategoryId(categoryIdToSelect);
+          return;
+        }
+
+        if (!selectedCategoryId && categoryList.length > 0) {
+          setSelectedCategoryId(categoryList[0].id);
+        } else if (
+          selectedCategoryId &&
+          !categoryList.some(
+            (category) => category.id === selectedCategoryId
+          ) &&
+          categoryList.length > 0
+        ) {
+          setSelectedCategoryId(categoryList[0].id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch categories", error);
+        setCategoryError("Unable to load categories. Please refresh the page.");
+        setCategories([]);
+        setIsLoadingCategories(false);
       }
-    } catch (error) {
-      console.error("Failed to fetch categories", error);
-      setCategoryError("Unable to load categories. Please refresh the page.");
-      setCategories([]);
-      setIsLoadingCategories(false);
-    }
-  };
+    },
+    [user, selectedCategoryId]
+  );
 
   const selectedCategory = useMemo(() => {
     if (selectedCategoryId === null) {
@@ -102,34 +128,60 @@ const HomePage = () => {
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        router.push("/login");
+        router.replace("/login");
       } else if (!isAuthorized) {
-        router.push("/unauthorized");
+        router.replace("/unauthorized");
       }
     }
   }, [user, loading, isAuthorized, router]);
 
-  // Safety timeout - if loading takes too long, redirect to login
+  // Handle OAuth hash tokens (implicit flow)
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (loading) {
-        console.warn("Loading timeout - redirecting to login");
-        router.push("/login");
+    const handleHashTokens = async () => {
+      const hash = window.location.hash;
+      if (hash && hash.includes("access_token")) {
+        try {
+          // Let Supabase handle the hash tokens
+          const { error } = await supabase.auth.getSession();
+          if (!error) {
+            // Clear the hash from URL
+            window.history.replaceState(null, "", window.location.pathname);
+            // Reload to get user session
+            window.location.reload();
+          }
+        } catch (error) {
+          console.error("Error handling hash tokens:", error);
+        }
       }
-    }, 10000); // 10 second timeout
+    };
 
-    return () => clearTimeout(timeout);
-  }, [loading, router]);
+    handleHashTokens();
+  }, []);
 
-  // Load categories on mount
+  // Load categories on mount - wait for both user and authorization
   useEffect(() => {
-    if (user && !loading) {
+    console.log("Load categories effect:", {
+      user: !!user,
+      loading,
+      isAuthorized,
+    });
+    if (user && !loading && isAuthorized && !hasLoadedRef[0]) {
+      console.log("Loading categories...");
+      hasLoadedRef[1](true);
       loadCategories();
     }
-  }, [user, loading]);
+  }, [user, loading, isAuthorized, loadCategories, hasLoadedRef]);
 
   // Show loading state while checking authentication
   if (loading) {
+    console.log(
+      "Showing loading screen - loading:",
+      loading,
+      "user:",
+      !!user,
+      "isAuthorized:",
+      isAuthorized
+    );
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
