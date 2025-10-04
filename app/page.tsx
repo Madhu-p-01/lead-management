@@ -4,6 +4,7 @@ import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Analytics from "./components/Analytics";
 import ImportModal from "./components/ImportModal";
+import BulkCSVImport from "./components/BulkCSVImport";
 import LeadList from "./components/LeadList";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
@@ -25,6 +26,7 @@ const HomePage = () => {
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [categoryError, setCategoryError] = useState("");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"leads" | "analytics">("leads");
   const hasLoadedRef = useState(false);
 
@@ -71,8 +73,8 @@ const HomePage = () => {
 
         let categoryList: Category[] = allCategories ?? [];
 
-        // If user has restrictions and is not admin, filter categories
-        if (hasRestrictions && !isAdmin) {
+        // For regular users (non-admin), only show assigned categories
+        if (!isAdmin) {
           const { data: assignments } = await supabase
             .from("user_category_assignments")
             .select("category_id")
@@ -80,6 +82,8 @@ const HomePage = () => {
 
           const assignedCategoryIds =
             assignments?.map((a) => a.category_id) ?? [];
+
+          // If user has no assignments, show empty list
           categoryList = categoryList.filter((cat) =>
             assignedCategoryIds.includes(cat.id)
           );
@@ -93,16 +97,18 @@ const HomePage = () => {
           return;
         }
 
-        if (!selectedCategoryId && categoryList.length > 0) {
-          setSelectedCategoryId(categoryList[0].id);
-        } else if (
-          selectedCategoryId &&
-          !categoryList.some(
-            (category) => category.id === selectedCategoryId
-          ) &&
-          categoryList.length > 0
-        ) {
-          setSelectedCategoryId(categoryList[0].id);
+        // Only auto-select if user has categories
+        if (categoryList.length > 0) {
+          if (!selectedCategoryId) {
+            setSelectedCategoryId(categoryList[0].id);
+          } else if (
+            !categoryList.some((category) => category.id === selectedCategoryId)
+          ) {
+            setSelectedCategoryId(categoryList[0].id);
+          }
+        } else {
+          // No categories available, clear selection
+          setSelectedCategoryId(null);
         }
       } catch (error) {
         console.error("Failed to fetch categories", error);
@@ -275,6 +281,7 @@ const HomePage = () => {
           onRefresh={() => loadCategories(selectedCategoryId ?? undefined)}
           onDeleteCategory={handleDeleteCategory}
           onImportClick={() => setIsImportModalOpen(true)}
+          onBulkImportClick={() => setIsBulkImportModalOpen(true)}
         />
 
         {/* Main Content Area */}
@@ -336,7 +343,30 @@ const HomePage = () => {
           </div>
 
           {/* Tab Content */}
-          {activeTab === "leads" ? (
+          {categories.length === 0 && !isLoadingCategories ? (
+            <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-white p-12 text-center">
+              <svg
+                className="mx-auto h-12 w-12 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                />
+              </svg>
+              <h3 className="mt-4 text-lg font-semibold text-gray-900">
+                No Categories Assigned
+              </h3>
+              <p className="mt-2 text-sm text-gray-500">
+                You don't have access to any categories yet. Please contact your
+                administrator to get category access.
+              </p>
+            </div>
+          ) : activeTab === "leads" ? (
             <LeadList
               categoryId={selectedCategoryId}
               onImportClick={() => setIsImportModalOpen(true)}
@@ -352,6 +382,13 @@ const HomePage = () => {
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onComplete={handleImportComplete}
+      />
+
+      {/* Bulk CSV Import Modal */}
+      <BulkCSVImport
+        isOpen={isBulkImportModalOpen}
+        onClose={() => setIsBulkImportModalOpen(false)}
+        onComplete={() => loadCategories()}
       />
     </div>
   );

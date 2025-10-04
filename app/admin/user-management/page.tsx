@@ -24,6 +24,10 @@ export default function AdminPage() {
   const [isLoadingRef, setIsLoadingRef] = useState(false); // Prevent multiple simultaneous loads
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("user");
+  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+  const [allCategories, setAllCategories] = useState<
+    { id: number; name: string }[]
+  >([]);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -49,6 +53,7 @@ export default function AdminPage() {
       (userRole === "superadmin" || userRole === "admin")
     ) {
       loadAuthorizedUsers();
+      loadCategories();
     }
   }, [user, loading, isAuthorized, userRole]);
 
@@ -66,6 +71,21 @@ export default function AdminPage() {
 
     return () => clearInterval(keepAlive);
   }, [user]);
+
+  const loadCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name")
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+
+      setAllCategories(data || []);
+    } catch (err) {
+      console.error("Error loading categories:", err);
+    }
+  };
 
   const loadAuthorizedUsers = async () => {
     // Prevent multiple simultaneous calls
@@ -119,26 +139,60 @@ export default function AdminPage() {
         .single();
 
       if (authUser) {
-        // User exists, just update their profile
-        const { error } = await supabase
+        // Determine if user should have category restrictions
+        const hasRestrictions =
+          selectedCategories.length > 0 && newUserRole === "user";
+
+        // User exists, update their profile
+        const { error: updateError } = await supabase
           .from("user_profiles")
           .update({
             role: newUserRole,
             is_authorized: true,
+            has_category_restrictions: hasRestrictions,
             added_by: user?.id,
           })
           .eq("email", email);
 
-        if (error) throw error;
+        if (updateError) throw updateError;
+
+        // If categories were selected, assign them
+        if (selectedCategories.length > 0) {
+          // First, remove any existing category assignments
+          await supabase
+            .from("user_category_assignments")
+            .delete()
+            .eq("user_id", authUser.id);
+
+          // Then add new assignments
+          const assignments = selectedCategories.map((categoryId) => ({
+            user_id: authUser.id,
+            category_id: categoryId,
+          }));
+
+          const { error: assignError } = await supabase
+            .from("user_category_assignments")
+            .insert(assignments);
+
+          if (assignError) throw assignError;
+        }
+
+        setSuccess(
+          `Successfully added ${email}${
+            selectedCategories.length > 0
+              ? ` with ${selectedCategories.length} category assignment(s)`
+              : ""
+          }`
+        );
       } else {
         setError("User must sign in at least once before being added");
         setAdding(false);
         return;
       }
 
-      setSuccess(`Successfully added ${email}`);
       setNewUserEmail("");
       setNewUserRole("user");
+      setSelectedCategories([]);
       loadAuthorizedUsers();
     } catch (err) {
       console.error("Error adding user:", err);
@@ -384,37 +438,98 @@ export default function AdminPage() {
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               Add New User
             </h2>
-            <form onSubmit={addUser} className="flex gap-4">
-              <div className="flex-1">
-                <input
-                  type="email"
-                  value={newUserEmail}
-                  onChange={(e) => setNewUserEmail(e.target.value)}
-                  placeholder="user@example.com"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  required
-                />
+            <form onSubmit={addUser} className="space-y-4">
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                    placeholder="user@example.com"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    required
+                  />
+                </div>
+                <div className="w-48">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Role
+                  </label>
+                  <select
+                    value={newUserRole}
+                    onChange={(e) => setNewUserRole(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  >
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                    {userRole === "superadmin" && (
+                      <option value="superadmin">Superadmin</option>
+                    )}
+                  </select>
+                </div>
               </div>
-              <div className="w-48">
-                <select
-                  value={newUserRole}
-                  onChange={(e) => setNewUserRole(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                >
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                  {userRole === "superadmin" && (
-                    <option value="superadmin">Superadmin</option>
+
+              {/* Category Assignment */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Assign Categories (Optional)
+                </label>
+                <div className="max-h-40 overflow-y-auto rounded-lg border border-gray-300 p-2">
+                  {allCategories.length === 0 ? (
+                    <p className="text-sm text-gray-500 p-2">
+                      No categories available
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      {allCategories.map((category) => (
+                        <label
+                          key={category.id}
+                          className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedCategories.includes(category.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCategories([
+                                  ...selectedCategories,
+                                  category.id,
+                                ]);
+                              } else {
+                                setSelectedCategories(
+                                  selectedCategories.filter(
+                                    (id) => id !== category.id
+                                  )
+                                );
+                              }
+                            }}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700">
+                            {category.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   )}
-                </select>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Select categories this user can access. Leave empty for
+                  admin/superadmin roles.
+                </p>
               </div>
-              <button
-                type="submit"
-                disabled={adding}
-                className="rounded-lg bg-blue-600 px-6 py-2 text-white transition hover:bg-blue-700 disabled:opacity-50"
-              >
-                {adding ? "Adding..." : "Add User"}
-              </button>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={adding}
+                  className="rounded-lg bg-blue-600 px-6 py-2 text-white transition hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {adding ? "Adding..." : "Add User"}
+                </button>
+              </div>
             </form>
           </div>
 
