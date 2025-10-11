@@ -3,6 +3,7 @@
 import { useAuth } from "../contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import NotificationsModal from "./NotificationsModal";
 import supabase from "../utils/supabase";
 
@@ -96,30 +97,19 @@ const Navbar = ({ onMobileSidebarToggle }: NavbarProps) => {
   return (
     <nav className="sticky top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
       <div className="mx-auto flex h-16 max-w-full items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Logo and Title */}
+        {/* Logo */}
         <button 
           onClick={() => router.push("/")}
-          className="flex items-center gap-2 sm:gap-3 transition hover:opacity-80"
+          className="flex items-center transition hover:opacity-80"
         >
-          <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600">
-            <svg
-              className="h-4 w-4 sm:h-6 sm:w-6 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-          </div>
-          <div className="hidden sm:block">
-            <h1 className="text-base sm:text-lg font-bold text-gray-900">Lead Manager</h1>
-            <p className="text-xs text-gray-500 hidden md:block">Organize & Track Leads</p>
-          </div>
+          <Image
+            src="/leadflow-logo.svg"
+            alt="LeadFlow Logo"
+            width={150}
+            height={40}
+            className="h-8 sm:h-10 w-auto"
+            priority
+          />
         </button>
 
         {/* Right Side Actions */}
