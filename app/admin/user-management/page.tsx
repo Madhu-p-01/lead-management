@@ -536,120 +536,120 @@ export default function AdminPage() {
           {/* Users Table */}
           <div className="overflow-hidden rounded-lg bg-white shadow -mx-4 sm:mx-0">
             <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Added
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {authorizedUsers.map((authUser) => (
-                  <tr key={authUser.id} className="hover:bg-gray-50">
-                    <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                      {authUser.email}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                      <select
-                        value={authUser.role}
-                        onChange={(e) =>
-                          updateUserRole(authUser.id, e.target.value)
-                        }
-                        className="rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none cursor-pointer"
-                        disabled={
-                          authUser.email === user?.email || loadingUsers
-                        }
-                      >
-                        <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                        {userRole === "superadmin" && (
-                          <option value="superadmin">Superadmin</option>
-                        )}
-                      </select>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                          authUser.is_active
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {authUser.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                      {new Date(authUser.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={async () => {
-                            // Get user ID from auth.users
-                            const { data: userData } = await supabase
-                              .from("user_profiles")
-                              .select("id")
-                              .eq("email", authUser.email)
-                              .single();
-
-                            if (userData) {
-                              setSelectedUserForCategories({
-                                email: authUser.email,
-                                id: userData.id,
-                              });
-                              setCategoryModalOpen(true);
-                            }
-                          }}
-                          className="text-purple-600 hover:text-purple-900"
-                          title="Assign Categories"
-                        >
-                          Categories
-                        </button>
-                        <button
-                          onClick={() =>
-                            toggleUserStatus(authUser.id, authUser.is_active)
-                          }
-                          className="text-blue-600 hover:text-blue-900"
-                          disabled={authUser.email === user?.email}
-                        >
-                          {authUser.is_active ? "Deactivate" : "Activate"}
-                        </button>
-                        <button
-                          onClick={() =>
-                            deleteUser(authUser.id, authUser.email)
-                          }
-                          className="text-red-600 hover:text-red-900"
-                          disabled={authUser.email === user?.email}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </td>
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Role
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Added
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {authorizedUsers.map((authUser) => (
+                    <tr key={authUser.id} className="hover:bg-gray-50">
+                      <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
+                        {authUser.email}
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                        <select
+                          value={authUser.role}
+                          onChange={(e) =>
+                            updateUserRole(authUser.id, e.target.value)
+                          }
+                          className="rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none cursor-pointer"
+                          disabled={
+                            authUser.email === user?.email || loadingUsers
+                          }
+                        >
+                          <option value="user">User</option>
+                          <option value="admin">Admin</option>
+                          {userRole === "superadmin" && (
+                            <option value="superadmin">Superadmin</option>
+                          )}
+                        </select>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-sm">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                            authUser.is_active
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {authUser.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                        {new Date(authUser.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={async () => {
+                              // Get user ID from auth.users
+                              const { data: userData } = await supabase
+                                .from("user_profiles")
+                                .select("id")
+                                .eq("email", authUser.email)
+                                .single();
 
-            {authorizedUsers.length === 0 && (
-              <div className="py-12 text-center">
-                <p className="text-sm text-gray-500">
-                  No authorized users found
-                </p>
-              </div>
-            )}
+                              if (userData) {
+                                setSelectedUserForCategories({
+                                  email: authUser.email,
+                                  id: userData.id,
+                                });
+                                setCategoryModalOpen(true);
+                              }
+                            }}
+                            className="text-purple-600 hover:text-purple-900"
+                            title="Assign Categories"
+                          >
+                            Categories
+                          </button>
+                          <button
+                            onClick={() =>
+                              toggleUserStatus(authUser.id, authUser.is_active)
+                            }
+                            className="text-blue-600 hover:text-blue-900"
+                            disabled={authUser.email === user?.email}
+                          >
+                            {authUser.is_active ? "Deactivate" : "Activate"}
+                          </button>
+                          <button
+                            onClick={() =>
+                              deleteUser(authUser.id, authUser.email)
+                            }
+                            className="text-red-600 hover:text-red-900"
+                            disabled={authUser.email === user?.email}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {authorizedUsers.length === 0 && (
+                <div className="py-12 text-center">
+                  <p className="text-sm text-gray-500">
+                    No authorized users found
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

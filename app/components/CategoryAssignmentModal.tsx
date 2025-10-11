@@ -93,6 +93,44 @@ export default function CategoryAssignmentModal({
         }));
 
         await supabase.from("user_category_assignments").insert(assignments);
+
+        // Automatically assign all leads in these categories to the user
+        let totalLeadsAssigned = 0;
+        for (const categoryId of assignedCategories) {
+          // Get all lead IDs in this category
+          const { data: leadCategoryData, error: fetchError } = await supabase
+            .from("lead_categories")
+            .select("lead_id")
+            .eq("category_id", categoryId);
+
+          if (fetchError) {
+            console.error("Error fetching leads for category:", fetchError);
+            continue;
+          }
+
+          if (leadCategoryData && leadCategoryData.length > 0) {
+            const leadIds = leadCategoryData.map((lc) => lc.lead_id);
+
+            // Update ALL leads in this category to assign them to this user
+            // This will OVERWRITE any previous assignments
+            const { data: updatedLeads, error: updateError } = await supabase
+              .from("leads")
+              .update({ assigned_to: userId, updated_at: new Date().toISOString() })
+              .in("id", leadIds)
+              .select();
+
+            if (updateError) {
+              console.error("Error assigning leads:", updateError);
+            } else if (updatedLeads) {
+              totalLeadsAssigned += updatedLeads.length;
+              console.log(`Assigned ${updatedLeads.length} leads in category ${categoryId} to user ${userEmail}`);
+            }
+          }
+        }
+
+        if (totalLeadsAssigned > 0) {
+          console.log(`Total leads assigned to ${userEmail}: ${totalLeadsAssigned}`);
+        }
       }
 
       // Update user profile restriction status

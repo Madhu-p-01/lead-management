@@ -22,8 +22,23 @@ const LeadDetailModal = ({ lead, isOpen, onClose, onUpdate }) => {
   useEffect(() => {
     if (lead) {
       setEditedLead(lead);
+      // Reset all state when a new lead is opened
+      setErrorMessage("");
+      setSuccessMessage("");
+      setIsSaving(false);
+      setIsDeleting(false);
     }
   }, [lead]);
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setErrorMessage("");
+      setSuccessMessage("");
+      setIsSaving(false);
+      setIsDeleting(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen || !lead || !editedLead) return null;
 

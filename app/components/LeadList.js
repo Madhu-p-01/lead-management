@@ -455,6 +455,14 @@ const LeadList = ({ categoryId, onImportClick }) => {
     }
   };
 
+  const selectAllLeads = () => {
+    setSelectedLeadIds(filteredLeads.map((lead) => lead.id));
+  };
+
+  const deselectAllLeads = () => {
+    setSelectedLeadIds([]);
+  };
+
   const handleAssignComplete = async () => {
     // Refresh leads after assignment
     await fetchLeads();
@@ -486,12 +494,10 @@ const LeadList = ({ categoryId, onImportClick }) => {
     }
   };
 
-  // Fetch assigned user emails for leads
+  // Fetch assigned user names for leads
   useEffect(() => {
     const fetchAssignedUsers = async () => {
-      const leadsWithAssignedTo = leads.filter(
-        (lead) => lead.assigned_to && !lead.assigned_user_email
-      );
+      const leadsWithAssignedTo = leads.filter((lead) => lead.assigned_to);
       if (leadsWithAssignedTo.length === 0) return;
 
       const uniqueUserIds = [
@@ -501,22 +507,22 @@ const LeadList = ({ categoryId, onImportClick }) => {
       try {
         const { data, error } = await supabase
           .from("user_profiles")
-          .select("id, email")
+          .select("id, full_name, email")
           .in("id", uniqueUserIds);
 
         if (!error && data) {
           const userMap = {};
           data.forEach((user) => {
-            userMap[user.id] = user.email;
+            // Use full_name if available, otherwise fall back to email
+            userMap[user.id] = user.full_name || user.email;
           });
 
           setLeads((prevLeads) =>
             prevLeads.map((lead) => ({
               ...lead,
-              assigned_user_email:
-                lead.assigned_to && !lead.assigned_user_email
-                  ? userMap[lead.assigned_to]
-                  : lead.assigned_user_email,
+              assigned_user_name: lead.assigned_to
+                ? userMap[lead.assigned_to]
+                : null,
             }))
           );
         }
@@ -526,7 +532,7 @@ const LeadList = ({ categoryId, onImportClick }) => {
     };
 
     fetchAssignedUsers();
-  }, [leads.length]);
+  }, [leads.length, leads.map(l => l.assigned_to).join(',')]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
@@ -643,6 +649,53 @@ const LeadList = ({ categoryId, onImportClick }) => {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {isBulkEditMode && (
+            <>
+              {selectedLeadIds.length < filteredLeads.length && (
+                <button
+                  onClick={selectAllLeads}
+                  className="btn btn-secondary text-sm"
+                  title={`Select all ${filteredLeads.length} leads`}
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  Select All ({filteredLeads.length})
+                </button>
+              )}
+              {selectedLeadIds.length > 0 && (
+                <button
+                  onClick={deselectAllLeads}
+                  className="btn btn-secondary text-sm"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  Deselect All
+                </button>
+              )}
+            </>
+          )}
           {selectedLeadIds.length > 0 && (
             <button
               onClick={() => setIsAssignModalOpen(true)}
@@ -1315,7 +1368,7 @@ const LeadList = ({ categoryId, onImportClick }) => {
                   <td className={`${
                     isBulkEditMode ? "sticky left-12 sm:left-auto sm:static" : "sticky left-0 sm:static"
                   } z-10 bg-white px-2 sm:px-4 py-3`}>
-                    <div className="flex flex-col overflow-hidden min-w-[180px]">
+                    <div className="flex flex-col overflow-hidden min-w-[180px] max-w-[250px]">
                       <span
                         className="truncate font-semibold text-gray-900"
                         title={lead.name}
@@ -1343,12 +1396,22 @@ const LeadList = ({ categoryId, onImportClick }) => {
                         updateLead(lead.id, { status: e.target.value });
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                      className={`rounded-lg border px-2 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-200 ${getStatusClasses(
+                        lead.status || "Fresh Lead"
+                      )}`}
                     >
-                      <option value="Fresh Lead">Fresh Lead</option>
-                      <option value="Interested">Interested</option>
-                      <option value="Not Interested">Not Interested</option>
-                      <option value="Follow-up">Follow-up</option>
+                      <option value="Fresh Lead" className="bg-purple-100 text-purple-700">
+                        Fresh Lead
+                      </option>
+                      <option value="Interested" className="bg-emerald-100 text-emerald-700">
+                        Interested
+                      </option>
+                      <option value="Not Interested" className="bg-gray-100 text-gray-600">
+                        Not Interested
+                      </option>
+                      <option value="Follow-up" className="bg-blue-100 text-blue-700">
+                        Follow-up
+                      </option>
                     </select>
                   </td>
                   <td className="px-2 sm:px-4 py-3 text-sm text-gray-600">
@@ -1405,9 +1468,9 @@ const LeadList = ({ categoryId, onImportClick }) => {
                   <td className="px-2 sm:px-4 py-3">
                     <span
                       className="truncate block text-sm text-gray-600 max-w-[120px]"
-                      title={lead.assigned_user_email || ""}
+                      title={lead.assigned_user_name || ""}
                     >
-                      {lead.assigned_user_email || "—"}
+                      {lead.assigned_user_name || "—"}
                     </span>
                   </td>
                 </tr>
@@ -1487,9 +1550,17 @@ const LeadList = ({ categoryId, onImportClick }) => {
             // Lead was deleted, refresh the list
             fetchLeads();
           } else {
-            // Lead was updated
+            // Lead was updated - preserve assigned_user_name and assigned_to
             setLeads((prev) =>
-              prev.map((l) => (l.id === updatedLead.id ? updatedLead : l))
+              prev.map((l) =>
+                l.id === updatedLead.id
+                  ? {
+                      ...updatedLead,
+                      assigned_to: l.assigned_to,
+                      assigned_user_name: l.assigned_user_name,
+                    }
+                  : l
+              )
             );
           }
         }}
