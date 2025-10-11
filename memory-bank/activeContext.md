@@ -6,7 +6,69 @@
 
 ## Recent Major Changes (Latest Session)
 
-### 1. Supabase Connection Fix (CRITICAL)
+### 1. Email OTP Authentication Implementation (NEW)
+
+**Feature**: Replaced Google OAuth with email-based OTP authentication for @syntellite.com domain.
+
+**Implementation Details**:
+
+1. **Email Validation**:
+   - Only @syntellite.com email addresses are allowed
+   - Client-side regex validation: `/^[^\s@]+@syntellite\.com$/i`
+   - Clear error messages for invalid emails
+
+2. **Two-Step Authentication Flow**:
+   - **Step 1**: User enters email address
+   - **Step 2**: User enters 6-digit OTP received via email
+   - Smooth transition between steps with state management
+
+3. **OTP Features**:
+   - 6-digit numeric OTP sent to user's email
+   - Resend OTP functionality
+   - Change email option during OTP verification
+   - Auto-formatting of OTP input (numeric only, max 6 digits)
+   - Visual feedback for OTP sent success
+
+4. **User Experience**:
+   - Clean, modern UI with step indicators
+   - Loading states for all async operations
+   - Success/error messages with icons
+   - Disabled states during processing
+   - Responsive design maintained
+
+**Files Modified**:
+- `app/login/page.tsx` - Complete rewrite with OTP flow
+
+**Security Benefits**:
+- Domain-restricted access (@syntellite.com only)
+- No third-party OAuth dependencies
+- Email-based verification
+- Time-limited OTP tokens
+
+**User Flow**:
+1. User enters @syntellite.com email
+2. System validates email domain
+3. OTP sent to email via Supabase Auth
+4. User enters 6-digit OTP
+5. System verifies OTP
+6. User logged in and redirected to dashboard
+
+### 2. Domain Configuration Update
+
+**Change**: Updated all references from `leadflow-syntellite.vercel.app` to `leadflow.syntellite.com`
+
+**Files Updated**:
+- `memory-bank/activeContext.md` - Supabase configuration section
+- `memory-bank/progress.md` - Deployment configuration
+
+**Reason**: Ensure application stays on the correct domain (leadflow.syntellite.com) and doesn't redirect to Vercel subdomain.
+
+**Supabase Configuration Required**:
+- Update Site URL to: `https://leadflow.syntellite.com`
+- Update Redirect URLs to include: `https://leadflow.syntellite.com/auth/callback`
+- Remove old Vercel URLs if no longer needed
+
+### 3. Supabase Connection Fix (CRITICAL)
 
 **Problem**: Backend calls intermittently failed after page refresh, requiring multiple refreshes to work.
 
@@ -144,14 +206,14 @@
 
 ### Supabase Settings
 
-**Site URL**: `https://leadflow-syntellite.vercel.app`
+**Site URL**: `https://leadflow.syntellite.com`
 
 **Redirect URLs**:
 
 - `http://localhost:3000`
 - `http://localhost:3000/auth/callback`
-- `https://leadflow-syntellite.vercel.app`
-- `https://leadflow-syntellite.vercel.app/auth/callback`
+- `https://leadflow.syntellite.com`
+- `https://leadflow.syntellite.com/auth/callback`
 
 ### Vercel Environment Variables
 

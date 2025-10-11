@@ -154,7 +154,7 @@
 ## Deployment Configuration
 
 ### Supabase Settings
-- Site URL: `https://leadflow-syntellite.vercel.app`
+- Site URL: `https://leadflow.syntellite.com`
 - Redirect URLs configured for localhost and production
 - RLS policies enabled and tested
 - OAuth providers configured
